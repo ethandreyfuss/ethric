@@ -24,6 +24,105 @@ def create_constants(func):
         return func(self, other)
     return decorated_func
 
+class Monotonicity(object):
+    pass
+
+class Increasing(Monotonicity):
+    pass
+
+class Decreasing(Monotonicity):
+    pass
+
+class Mixed(Monotonicity):
+    pass
+
+class Curvature(object):
+    pass
+
+class Convex(Curvature):
+    pass
+
+class Concave(Curvature):
+    pass
+
+class Affine(Curvature):
+    pass
+
+class Unknown(Curvature):
+    pass
+
+def is_convex(expr):
+    return expr.is_convex or expr.is_affine
+
+def is_concave(expr):
+    return expr.is_concave or expr.is_affine
+
+def is_affine(expr):
+    return expr.is_affine
+
+def make_convex(expr):
+    expr.make_convex()
+    
+def make_concave(expr):
+    expr.make_concave()
+    
+def make_affine(expr):
+    expr.make_affine()
+
+def check_curvature(args, inner_args, increasing_arg_requirement, decreasing_arg_requirement):
+    rval = True
+    for idx, arg in enumerate(args):
+        assert isinstance(arg, Monotonicity), "Invalid monotonicity for monotonicity decorator: "+str(type(arg))
+        print "rval",rval,"arg",arg,"inner_arg",inner_args[idx],"cvx",is_convex(inner_args[idx]),"ccv",is_concave(inner_args[idx])
+        if isinstance(arg, Increasing):
+            rval = rval and increasing_arg_requirement(inner_args[idx])
+            #"Convex argument required when function is of increasing"+\
+            #" monotonicity, but "+str(arg)+" is not convex"
+        elif isinstance(arg, Decreasing):
+            rval = rval and decreasing_arg_requirement(inner_args[idx])
+            #"Concave argument required when function is of increasing"+\
+            #" monotonicity, but "+str(arg)+" is not concave"
+        elif isinstance(arg, Mixed):
+            rval = rval and is_affine(inner_args[idx])
+            #"Affine argument required when function is of mixed"+\
+            #" monotonicity, but "+str(arg)+" is not mixed"
+    return rval
+    
+def monotonicity(*args):
+    args = list(args)
+    for i in range(len(args)):
+        t = args[i]
+        if isinstance(t, type): #accept type or instance
+            args[i] = t()
+    function_curvature = args[0]
+    output_convex = False
+    output_concave = False
+    args = args[1:]
+        
+    def decorator(func):
+        def decorated_func(*inner_args, **kwargs):
+            if isinstance(function_curvature, Convex) or isinstance(function_curvature, Affine):
+                output_convex = check_curvature(args, inner_args, is_convex, is_concave)
+            if isinstance(function_curvature, Concave) or isinstance(function_curvature, Affine):
+                output_concave = check_curvature(args, inner_args, is_concave, is_convex)
+
+            if output_convex and output_concave:
+                output = make_affine
+                print str([str(x) for x in inner_args])+" is affine"
+            elif output_convex:
+                output = make_convex
+                print str([str(x) for x in inner_args])+" is convex"
+            elif output_concave:
+                output = make_concave
+                print str([str(x) for x in inner_args])+" is concave"
+            else:
+                assert False, "Unknown curvature: "+str(args)+" | "+str([str(x) for x in inner_args])
+            rval = func(*inner_args, **kwargs)
+            output(rval)
+            return rval
+        return decorated_func
+    return decorator
+
 class Expression(object):
     def __init__(self, LHS, RHS, op):
         if LHS.problem is not None:
@@ -33,6 +132,9 @@ class Expression(object):
         self.LHS = LHS
         self.RHS = RHS
         self.operator = op
+        self.is_convex = False
+        self.is_concave = False
+        self.is_affine = False
         
     def __str__(self):
         return "[" + ", ".join(str(x) for x in [self.LHS, self.RHS, self.operator])+"]"
@@ -43,7 +145,7 @@ class Expression(object):
     
     def __abs__(self):
         tmp = self._var()
-        -self<=tmp<=self
+        -tmp<=self<=tmp
         return tmp
         
     def __lt__(self, other):
@@ -73,6 +175,18 @@ class Expression(object):
         
     def __neg__(self):
         return 0-self
+    
+    def make_convex(self):
+        print "marking",self,"convex"
+        self.is_convex = True
+        
+    def make_concave(self):
+        print "marking",self,"concave"
+        self.is_concave = True
+        
+    def make_affine(self):
+        print "marking",self,"affine"
+        self.is_affine = True
     
 def norm1(sequence):
     return sum(abs(x) for x in sequence)
@@ -118,6 +232,12 @@ def make_binary_operator_linear(x):
 #must be linear, can't multiply/divide variable by variable
 for x in ["mul", "div", "rmul", "rdiv"]:
     decorate_operator(enforce_linear, x)
+
+
+decorate_operator(monotonicity(Affine, Increasing, Increasing), "add")
+decorate_operator(monotonicity(Affine, Increasing, Increasing), "radd")
+decorate_operator(monotonicity(Affine, Increasing, Decreasing), "sub")
+decorate_operator(monotonicity(Affine, Increasing, Decreasing), "rsub")
     
 for x in binary_ops:
     decorate_operator(create_constants, x)
@@ -130,6 +250,9 @@ class Variable(Expression):
         self.problem = problem
         self.idx = Variable.idx
         Variable.idx +=1
+        self.is_affine = True
+        self.is_convex = True
+        self.is_concave = True
     
     def __str__(self):
         return "Var"+str(self.idx)
@@ -170,6 +293,9 @@ class Constant(Expression):
         assert isinstance(val, numbers.Number), "Constant must be of numeric type"
         self.val = val
         self.problem = None
+        self.is_affine = True
+        self.is_convex = True
+        self.is_concave = True
         
     def __abs__(self):
         return Constant(abs(self.val))
