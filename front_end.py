@@ -73,7 +73,7 @@ def check_curvature(args, inner_args, increasing_arg_requirement, decreasing_arg
     rval = True
     for idx, arg in enumerate(args):
         assert isinstance(arg, Monotonicity), "Invalid monotonicity for monotonicity decorator: "+str(type(arg))
-        print "rval",rval,"arg",arg,"inner_arg",inner_args[idx],"cvx",is_convex(inner_args[idx]),"ccv",is_concave(inner_args[idx])
+        #print "rval",rval,"arg",arg,"inner_arg",inner_args[idx],"cvx",is_convex(inner_args[idx]),"ccv",is_concave(inner_args[idx])
         if isinstance(arg, Increasing):
             rval = rval and increasing_arg_requirement(inner_args[idx])
             #"Convex argument required when function is of increasing"+\
@@ -108,13 +108,13 @@ def monotonicity(*args):
 
             if output_convex and output_concave:
                 output = make_affine
-                print str([str(x) for x in inner_args])+" is affine"
+                #print str([str(x) for x in inner_args])+" is affine"
             elif output_convex:
                 output = make_convex
-                print str([str(x) for x in inner_args])+" is convex"
+                #print str([str(x) for x in inner_args])+" is convex"
             elif output_concave:
                 output = make_concave
-                print str([str(x) for x in inner_args])+" is concave"
+                #print str([str(x) for x in inner_args])+" is concave"
             else:
                 assert False, "Unknown curvature: "+str(args)+" | "+str([str(x) for x in inner_args])
             rval = func(*inner_args, **kwargs)
@@ -177,15 +177,15 @@ class Expression(object):
         return 0-self
     
     def make_convex(self):
-        print "marking",self,"convex"
+        #print "marking",self,"convex"
         self.is_convex = True
         
     def make_concave(self):
-        print "marking",self,"concave"
+        #print "marking",self,"concave"
         self.is_concave = True
         
     def make_affine(self):
-        print "marking",self,"affine"
+        #print "marking",self,"affine"
         self.is_affine = True
     
 def norm1(sequence):
@@ -228,16 +228,16 @@ def make_binary_operator_linear(x):
     fname = as_private(x)
     func = getattr(Expression, fname)
     setattr(Expression, fname, enforce_linear(func))
-    
+
+#TODO cannot divide constant by variable, needs enforcement
 #must be linear, can't multiply/divide variable by variable
 for x in ["mul", "div", "rmul", "rdiv"]:
     decorate_operator(enforce_linear, x)
 
-
-decorate_operator(monotonicity(Affine, Increasing, Increasing), "add")
-decorate_operator(monotonicity(Affine, Increasing, Increasing), "radd")
+for x in ["mul", "rmul", "add", "radd", "div", "rdiv"]:
+    decorate_operator(monotonicity(Affine, Increasing, Increasing), x)
 decorate_operator(monotonicity(Affine, Increasing, Decreasing), "sub")
-decorate_operator(monotonicity(Affine, Increasing, Decreasing), "rsub")
+decorate_operator(monotonicity(Affine, Increasing, Decreasing), "rsub") #TODO, should be reversed? I don't think so
     
 for x in binary_ops:
     decorate_operator(create_constants, x)
