@@ -394,25 +394,27 @@ def tests():
     y = [p.var() for _ in range(5)]
     exp7 = norm1(y)
     print exp7
-    p.var()<=3
+    p.var() <= 3
     p.solve()
-    
+
+
 def l1SVM():
-    pos_samples = [(random.gauss(1, 1), random.gauss(1,1)) for _ in range(5)]
-    neg_samples = [(random.gauss(5, 1), random.gauss(3,1)) for _ in range(5)]
+    pos_samples = [(random.gauss(1, 1), random.gauss(1, 1)) for _ in range(5)]
+    neg_samples = [(random.gauss(5, 1), random.gauss(3, 1)) for _ in range(5)]
     print pos_samples[:50]
     print neg_samples[:50]
+
     def dot(vec1, vec2):
-        return sum(v1*v2 for v1,v2 in zip(vec1, vec2))
-    
+        return sum(v1*v2 for v1, v2 in zip(vec1, vec2))
+
     p = Problem()
     a = p.vars(2)
     b = p.var()
     gamma = 0.5
-    p.minimize(norm1(a)+gamma*(sum(pos(1-dot(a, x)+b) for x in pos_samples)+\
-                               sum(pos(1+dot(a, y)+b) for y in neg_samples)))
+    p.minimize(norm1(a)+gamma*(sum(pos(1 - dot(a, x)+b) for x in pos_samples) +
+                               sum(pos(1 + dot(a, y)+b) for y in neg_samples)))
     p.solve()
-    
+
     set_vars(a, [1, 2])
     b.set(1)
     p.eval()
