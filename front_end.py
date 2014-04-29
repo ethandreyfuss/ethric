@@ -1,4 +1,4 @@
-import numbers, operator
+import numbers, operator, random
 
 #TODO: 
 # clean up conversion to Constant
@@ -187,6 +187,11 @@ class Expression(object):
     def make_affine(self):
         #print "marking",self,"affine"
         self.is_affine = True
+        
+    def eval(self):
+        #print "Evaling:",str(self)
+        func = getattr(operator, self.operator)
+        return func(self.LHS.eval(), self.RHS.eval())
     
 def norm1(sequence):
     return sum(abs(x) for x in sequence)
@@ -253,9 +258,16 @@ class Variable(Expression):
         self.is_affine = True
         self.is_convex = True
         self.is_concave = True
+        self.val = None
     
     def __str__(self):
         return "Var"+str(self.idx)
+    
+    def set(self, val):
+        self.val = val
+        
+    def eval(self):
+        return self.val
 
 def get_problem(args):
     return next((x.problem for x in args if isinstance(x, Expression) and x.problem is not None), None) 
@@ -302,6 +314,9 @@ class Constant(Expression):
         
     def __str__(self):
         return str(self.val)
+    
+    def eval(self):
+        return self.val
 
 class Problem(object):
     def __init__(self):
@@ -322,6 +337,9 @@ class Problem(object):
         self.var_list.append(new_var)
         return new_var
     
+    def vars(self, num):
+        return [self.var() for _ in range(num)]
+    
     def minimize(self, expression):
         assert self.objective_to_minimize is None, "Can only minimize one thing, already minimizing "+\
             str(self.objective_to_minimize)
@@ -339,7 +357,24 @@ class Problem(object):
             print str(constraint)+" <= 0"
         for constraint in self.equal_zero_constraints:
             print str(constraint)+" == 0"
-         
+            
+    def eval(self):
+        #TODO: just for testing
+        for v in self.temporary_var_list:
+            v.set(random.random())
+        print "Objective Val:",self.objective_to_minimize.eval()
+        print "   subject to:"
+        for constraint in self.less_than_or_equal_zero_constraints:
+            print str(constraint.eval())+" <= 0"
+        for constraint in self.equal_zero_constraints:
+            print str(constraint.eval())+" == 0"
+
+def set_vars(vars, vals):
+    assert len(vars) == len(vals), "Cannot assign vals list to var list of different size. len(vars):"\
+                                   +str(len(vars))+", len(vals):"+str(len(vals))
+    for idx, x in enumerate(vals):
+        vars[idx].set(x)
+            
 def tests():
     p = Problem()
     x1 = p.var()
@@ -363,7 +398,6 @@ def tests():
     p.solve()
     
 def l1SVM():
-    import random
     pos_samples = [(random.gauss(1, 1), random.gauss(1,1)) for _ in range(5)]
     neg_samples = [(random.gauss(5, 1), random.gauss(3,1)) for _ in range(5)]
     print pos_samples[:50]
@@ -372,12 +406,16 @@ def l1SVM():
         return sum(v1*v2 for v1,v2 in zip(vec1, vec2))
     
     p = Problem()
-    a = [p.var() for _ in range(2)]
+    a = p.vars(2)
     b = p.var()
     gamma = 0.5
     p.minimize(norm1(a)+gamma*(sum(pos(1-dot(a, x)+b) for x in pos_samples)+\
                                sum(pos(1+dot(a, y)+b) for y in neg_samples)))
     p.solve()
+    
+    set_vars(a, [1, 2])
+    b.set(1)
+    p.eval()
 
 if __name__ == "__main__":
     #tests()
