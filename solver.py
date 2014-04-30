@@ -1,10 +1,70 @@
 
-def tests():
+def solve(apply_G_func, apply_A_func, c, h, b):
+    """ Solves a cone constrained convex optimization problem
+    via an interior point method.  The specific method used
+    is a primal-dual infeasible interior point method.  The
+    linear system solves are done via conjugate gradient.
+
+    Will this work?  Let's find out.
+    Initial implementation based on:
+    http://www.seas.ucla.edu/~vandenbe/ee236a/lectures/hsd.pdf
+
+    minimize    c'*x
+    subject to  G*x + s = h
+                A*x = b
+                s >= 0
+
+    >>> solve(None, None, [0], [0], [0])
     """
-    >>> tests()
-    Testing
-    """
-    print "Testing"
+
+    ABSTOL = 1e-8
+    RELTOL = 1e-8
+    FEASTOL = 1e-8
+    MINSLACK = 1e-8      
+    STEP = 0.99
+    EXPON = 3
+
+    #x
+    point = [0.0] * len(c)
+    #y, note that dual is different size from primal slack
+    dual_point = [0.0] * len(b)
+    #s
+    slack = [1.0] * len(h)
+    #z
+    dual_slack = [1.0] * len(h)
+
+    #introduced as part of extended self-dual embedding
+    tau_scale = 1.0
+    theta_scale = 1.0
+    lambda_slack = 1.0
+
+    #main loop
+    MAX_ITERS = 200
+    for iter_count in range(MAX_ITERS):
+        compute_residuals_and_gap()
+        evaluate_stopping_criteria()
+        compute_affine_scaling_direction()
+        select_barrier_parameter()
+        compute_search_direction()
+        update_iterates()
+
+def compute_residuals_and_gap():
+    pass
+
+def evaluate_stopping_criteria():
+    pass
+
+def compute_affine_scaling_direction():
+    pass
+
+def select_barrier_parameter():
+    pass
+
+def compute_search_direction():
+    pass
+
+def update_iterates():
+    pass
 
 def dot(vec1, vec2):
     return sum(v1 * v2 for v1, v2 in zip(vec1, vec2))
