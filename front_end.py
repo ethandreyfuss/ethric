@@ -171,9 +171,38 @@ class Expression(object):
         self.is_convex = False
         self.is_concave = False
         self.is_affine = False
+        self.offset = None
+        #TODO deal with offsets somehow
 
     def __str__(self):
         return "[" + ", ".join(str(x) for x in [self.LHS, self.RHS, self.operator]) + "]"
+
+    def alt_str(self, add_parens = False):
+        pl = False
+        pr = False
+        if self.operator == "mul":
+            if hasattr(self.LHS, "operator") and self.LHS.operator in ["add", "sub"]:
+                pl = True
+            if hasattr(self.RHS, "operator") and self.RHS.operator in ["add", "sub"]:
+                pr = True
+        elif self.operator == "sub":
+            pr = True
+        rval = self.LHS.alt_str(pl)+self.op_to_str(self.operator)+self.RHS.alt_str(pr)
+        if add_parens:
+            return "("+rval+")"
+        else:
+            return rval
+
+    def op_to_str(self, op):
+        if op == "add":
+            return "+"
+        if op == "sub":
+            return "-"
+        if op == "mul":
+            return "*"
+        if op == "div":
+            return "/"
+        return "?"
 
     def _var(self):
         assert self.problem is not None
@@ -305,9 +334,13 @@ class Variable(Expression):
         self.is_convex = True
         self.is_concave = True
         self.val = None
+        self.offset = 0.0
 
     def __str__(self):
         return "Var" + str(self.idx)
+
+    def alt_str(self, add_parens):
+        return "x["+str(self.idx)+"]"
 
     def set(self, val):
         self.val = val
@@ -361,11 +394,15 @@ class Constant(Expression):
         self.is_affine = True
         self.is_convex = True
         self.is_concave = True
+        self.offset = val
 
     def __abs__(self):
         return Constant(abs(self.val))
 
     def __str__(self):
+        return str(self.val)
+
+    def alt_str(self, add_parens):
         return str(self.val)
 
     def eval(self):
@@ -413,6 +450,14 @@ class Problem(object):
             print str(constraint) + " <= 0"
         for constraint in self.equal_zero_constraints:
             print str(constraint) + " == 0"
+
+    def solve_alt(self):
+        print "Minimizing:",self.objective_to_minimize.alt_str(False)
+        print "   subject to:"
+        for constraint in self.less_than_or_equal_zero_constraints:
+            print constraint.alt_str(False) + " <= 0"
+        for constraint in self.equal_zero_constraints:
+            print constraint.alt_str(False) + " == 0"
 
     def eval(self):
         # TODO: just for testing
@@ -475,11 +520,11 @@ def l1SVM():
         (sum(pos(1 - dot(a, x) + b) for x in pos_samples) +
          sum(pos(1 + dot(a, y) + b) for y in neg_samples))
     )
-    p.solve()
+    p.solve_alt()
 
     set_vars(a, [1, 2])
     b.set(1)
-    p.eval()
+    #p.eval()
 
 def all_tests():
     """Runs some tests
