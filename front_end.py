@@ -405,6 +405,9 @@ class Constant(Expression):
     def alt_str(self, add_parens):
         return str(self.val)
 
+    def adj_str(self, col_var):
+        pass
+
     def eval(self):
         return self.val
 
@@ -451,13 +454,21 @@ class Problem(object):
         for constraint in self.equal_zero_constraints:
             print str(constraint) + " == 0"
 
-    def solve_alt(self):
-        print "Minimizing:",self.objective_to_minimize.alt_str(False)
+    def print_apply(self):
+        #print "Minimizing:",self.objective_to_minimize.alt_str(False)
         print "   subject to:"
-        for constraint in self.less_than_or_equal_zero_constraints:
-            print constraint.alt_str(False) + " <= 0"
+        print "out = [0.0] * "+str(len(self.less_than_or_equal_zero_constraints))
+        for idx, constraint in enumerate(self.less_than_or_equal_zero_constraints):
+            print "out["+str(idx)+"] = "+constraint.alt_str(False)
         for constraint in self.equal_zero_constraints:
             print constraint.alt_str(False) + " == 0"
+
+    def print_apply_adjoint(self):
+        print "=== Adjoint ==="
+        print "out = [0.0] * "+str(len(self.var_list)+len(self.temporary_var_list))
+        for idx, constraint in enumerate(self.less_than_or_equal_zero_constraints):
+            print "\n".join(constraint.adj_str("out["+str(idx)+"]"))
+
 
     def eval(self):
         # TODO: just for testing
@@ -520,7 +531,8 @@ def l1SVM():
         (sum(pos(1 - dot(a, x) + b) for x in pos_samples) +
          sum(pos(1 + dot(a, y) + b) for y in neg_samples))
     )
-    p.solve_alt()
+    p.print_apply()
+    p.print_apply_adjoint()
 
     set_vars(a, [1, 2])
     b.set(1)
