@@ -177,7 +177,7 @@ class Expression(object):
     def __str__(self):
         return "[" + ", ".join(str(x) for x in [self.LHS, self.RHS, self.operator]) + "]"
 
-    def alt_str(self, add_parens = False):
+    def adj_str(self, add_parens=False):
         pl = False
         pr = False
         if self.operator == "mul":
@@ -187,7 +187,7 @@ class Expression(object):
                 pr = True
         elif self.operator == "sub":
             pr = True
-        rval = self.LHS.alt_str(pl)+self.op_to_str(self.operator)+self.RHS.alt_str(pr)
+        rval = str(self.LHS.adj_str(pl))+str(self.op_to_str(self.operator))+str(self.RHS.adj_str(pr))
         if add_parens:
             return "("+rval+")"
         else:
@@ -227,16 +227,19 @@ class Expression(object):
     def __le__(self, other):
         assert self.problem is not None
         self.problem.less_than_or_equal_zero_constraints.append(self - other)
+        return True
 
     @create_constants
     def __ge__(self, other):
         assert self.problem is not None
         self.problem.less_than_or_equal_zero_constraints.append(other - self)
+        return True
 
     @create_constants
     def __eq__(self, other):
         assert self.problem is not None
         self.problem.equal_zero_constraints.append(self - other)
+        return True
 
     def __neg__(self):
         return 0 - self
@@ -260,6 +263,7 @@ class Expression(object):
 
 
 def norm1(sequence):
+    print "Norm1(",sequence,")"
     return sum(abs(x) for x in sequence)
 
 
@@ -339,7 +343,7 @@ class Variable(Expression):
     def __str__(self):
         return "Var" + str(self.idx)
 
-    def alt_str(self, add_parens):
+    def adj_str(self, add_parens):
         return "x["+str(self.idx)+"]"
 
     def set(self, val):
@@ -402,11 +406,8 @@ class Constant(Expression):
     def __str__(self):
         return str(self.val)
 
-    def alt_str(self, add_parens):
+    def adj_str(self, add_parens):
         return str(self.val)
-
-    def adj_str(self, col_var):
-        pass
 
     def eval(self):
         return self.val
@@ -455,13 +456,13 @@ class Problem(object):
             print str(constraint) + " == 0"
 
     def print_apply(self):
-        #print "Minimizing:",self.objective_to_minimize.alt_str(False)
+        print "Minimizing:",self.objective_to_minimize.adj_str(False)
         print "   subject to:"
         print "out = [0.0] * "+str(len(self.less_than_or_equal_zero_constraints))
         for idx, constraint in enumerate(self.less_than_or_equal_zero_constraints):
-            print "out["+str(idx)+"] = "+constraint.alt_str(False)
+            print "out["+str(idx)+"] = "+constraint.adj_str(False)
         for constraint in self.equal_zero_constraints:
-            print constraint.alt_str(False) + " == 0"
+            print constraint.adj_str(False) + " == 0"
 
     def print_apply_adjoint(self):
         print "=== Adjoint ==="
@@ -529,10 +530,14 @@ def l1SVM():
     p.minimize(
         norm1(a) + gamma *
         (sum(pos(1 - dot(a, x) + b) for x in pos_samples) +
-         sum(pos(1 + dot(a, y) + b) for y in neg_samples))
+         sum(pos(1 + dot(a, y) - b) for y in neg_samples))
     )
+    #  + gamma *
+    #    (sum(pos(1 - dot(a, x) + b) for x in pos_samples) +
+    #     sum(pos(1 + dot(a, y) - b) for y in neg_samples))
+
     p.print_apply()
-    p.print_apply_adjoint()
+    #p.print_apply_adjoint()
 
     set_vars(a, [1, 2])
     b.set(1)
@@ -612,5 +617,6 @@ def all_tests():
     """
 
 if __name__ == "__main__":
-    import doctest
-    doctest.testmod()
+    #import doctest
+    #doctest.testmod()
+    l1SVM()
