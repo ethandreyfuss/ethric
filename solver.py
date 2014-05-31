@@ -1,5 +1,12 @@
+class ConstraintExpressions(object):
+    def __init__(self, apply_G_func, apply_A_func, apply_GT_func, apply_AT_func):
+        self.apply_G_func = apply_G_func
+        self.apply_A_func = apply_A_func
+        self.apply_GT_func = apply_GT_func
+        self.apply_AT_func = apply_AT_func
 
-def solve(apply_G_func, apply_A_func, c, h, b):
+
+def solve(constraint_expressions, c, h, b):
     """ Solves a cone constrained convex optimization problem
     via an interior point method.  The specific method used
     is a primal-dual infeasible interior point method.  The
@@ -16,6 +23,11 @@ def solve(apply_G_func, apply_A_func, c, h, b):
 
     >>> solve(None, None, [0], [0], [0])
     """
+    assert isinstance(constraint_expressions, ConstraintExpressions)
+
+    kkt_solver = gen_reduced_kkt_solver(constraint_expressions)
+
+    #TODO: rename c? rename h,b (offsets?)
 
     ABSTOL = 1e-8
     RELTOL = 1e-8
@@ -39,20 +51,47 @@ def solve(apply_G_func, apply_A_func, c, h, b):
     lambda_slack = 1.0
 
     #main loop
-    MAX_ITERS = 200
+    MAX_ITERS = 40
     for iter_count in range(MAX_ITERS):
-        compute_residuals_and_gap()
-        evaluate_stopping_criteria()
+        rx, ry, rz, rt, duality_gap, mu = compute_residuals_and_gap(point, dual_point, slack, dual_slack, constraint_expressions, c, h, b, tau, kappa)
+        if evaluate_stopping_criteria():
+            break
+
         compute_affine_scaling_direction()
         select_barrier_parameter()
         compute_search_direction()
         update_iterates()
 
-def compute_residuals_and_gap():
-    pass
+#tau and kappa are scalars from the extended self-dual embedding
+def compute_residuals_and_gap(point, dual_point, slack, dual_slack, constraint_expressions, c, h, b, tau, kappa):
+    # /* rx = -A'*y - G'*z - c.*tau */
+    rx = [-e1-e2-tau*e3 for e1,e2,e3 in zip(constraint_expressions.apply_AT_func(dual_point),
+                                            constraint_expressions.apply_GT_func(dual_slack),
+                                            c)]
+
+    # /* ry = A*x - b.*tau */
+    ry = [e1-tau*e2 for e1,e2 in zip(constraint_expressions.apply_A_func(point), b)]
+
+    # /* rz = s + G*x - h.*tau */
+    rz = [e1+e2-tau*e3 for e1,e2,e3 in zip(slack,
+                                           constraint_expressions.apply_G_func(point),
+                                           h)]
+
+    rt = kappa + dot(c, point) + dot(b, dual_point) + dot(h, dual_slack)
+
+    duality_gap = dot(slack, dual_slack)
+    #mu is barrier cost
+    D = num_linear_inequalities = len(h)
+    #mu is theta parameter in extended self-dual embedding
+    mu = (duality_gap + kappa * tau ) / (num_linear_inequalities + 1)
+
+    return (rx, ry, rz, rt, duality_gap, mu)
+
+
 
 def evaluate_stopping_criteria():
-    pass
+    #for now we can just do fixed number of iterations
+    return False
 
 def compute_affine_scaling_direction():
     pass
@@ -65,6 +104,17 @@ def compute_search_direction():
 
 def update_iterates():
     pass
+
+def construct_RHS_affine_scaling_direction(scaling_point, rx, ry, rz, rt, tau, kappa, slack, dual_slack):
+    scaling_point = [e1/e2 for zip(slack, dual_slack)]
+    ds     = -[e**2 for e in scaling_point]
+    dkappa = -(tau * kappa)
+    return [rx, ry, rz, rt, ds, dkappa]
+
+def gen_reduced_kkt_solver(apply_G_func, apply_A_func, apply_GT_func, apply_AT_func):
+    def kkt_solver(scaling_matrix):
+        pass
+    return kkt_solver
 
 def dot(vec1, vec2):
     return sum(v1 * v2 for v1, v2 in zip(vec1, vec2))
